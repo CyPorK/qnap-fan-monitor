@@ -72,8 +72,23 @@ This will:
 
 See [PROJECT.md](PROJECT.md) for full installation details and sensor mapping.
 
+### Security & Safety
+
+This repo installs a **kernel module** (ring 0 — full system access). Before running `install.sh` on any machine:
+
+- Review the driver source: `qnap-ec.c`, `qnap-ec-helper.c`
+- Note that `libuLinux_hal.so` is a closed-source binary from QNAP (extracted from TS-873A firmware)
+- Only install on systems you own and control
+- The module is loaded automatically on boot via `/etc/modules` — removing it requires `sudo make uninstall`
+
 ---
 
+## Upstream documentation (original QNAP-EC by Stonyx)
+
+> The section below is preserved from the [original QNAP-EC repository](https://github.com/Stonyx/QNAP-EC) by Stonyx.
+> **For Proxmox VE / Debian installations use `install.sh` instead** — the manual steps below target vanilla Ubuntu 20.04 and are outdated for this fork.
+
+---
 
 A Linux hwmon driver kernel module for the QNAP IT8528 Embedded Controller chip (and possibly others).  This driver supports reading the fan speeds and temperatures as well as reading and writing the fan P.W.M. values from the ITE Tech Inc. IT8528 embedded controller chip that is used in many QNAP NAS models.  Because the IT8528 chip can run custom firmware this driver is most likely specific to the firmware that QNAP uses on these chips.  It is based on the reverse engineering knowledge originally gathered by [guedou](https://github.com/guedou) with lots of operational and testing help provided by [r-pufky](https://github.com/r-pufky).
 
