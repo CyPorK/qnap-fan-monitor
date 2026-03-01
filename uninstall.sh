@@ -70,12 +70,18 @@ else
 fi
 
 echo ""
-echo "=== 7. Remove config files ==="
+echo "=== 7. Remove fancontrol systemd override ==="
+remove_file /etc/systemd/system/fancontrol.service.d/restart.conf
+rmdir --ignore-fail-on-non-empty /etc/systemd/system/fancontrol.service.d 2>/dev/null || true
+systemctl daemon-reload
+
+echo ""
+echo "=== 8. Remove config files ==="
 remove_file /etc/fancontrol
 remove_file /etc/modprobe.d/qnap-ec.conf
 
 echo ""
-echo "=== 8. Remove qnap-monitor ==="
+echo "=== 9. Remove qnap-monitor ==="
 remove_file /usr/local/bin/qnap-monitor
 
 echo ""

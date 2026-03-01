@@ -95,19 +95,30 @@ sed "s/hwmon19/hwmon${HW_NUM}/g" "$SCRIPT_DIR/fancontrol" > /etc/fancontrol
 echo "  Saved: /etc/fancontrol (hwmon${HW_NUM})"
 
 echo ""
-echo "=== 10. Enable and start fancontrol service ==="
+echo "=== 10. Configure fancontrol restart policy ==="
+mkdir -p /etc/systemd/system/fancontrol.service.d
+cat > /etc/systemd/system/fancontrol.service.d/restart.conf <<'EOF'
+[Service]
+Restart=on-failure
+RestartSec=10
+EOF
+systemctl daemon-reload
+echo "  Configured: Restart=on-failure (RestartSec=10)"
+
+echo ""
+echo "=== 11. Enable and start fancontrol service ==="
 systemctl enable fancontrol
 systemctl restart fancontrol
 sleep 2
 systemctl status fancontrol --no-pager
 
 echo ""
-echo "=== 11. Install qnap-monitor ==="
+echo "=== 12. Install qnap-monitor ==="
 install -o root -g root -m 755 "$SCRIPT_DIR/qnap-monitor" /usr/local/bin/qnap-monitor
 echo "  Installed: /usr/local/bin/qnap-monitor"
 
 echo ""
-echo "=== 12. Verify fan readings ==="
+echo "=== 13. Verify fan readings ==="
 for fan in fan1_input fan2_input fan3_input fan4_input fan7_input fan8_input; do
     f="$HW/$fan"
     [ -f "$f" ] || continue
