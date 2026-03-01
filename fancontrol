@@ -4,14 +4,14 @@
 #
 # Sensors (hwmon19 = qnap_ec template placeholder):
 #   temp1_input = CPU zone EC (~45-90°C)
-#   temp6_input = strefa dysków (~30-50°C)
-#   temp8_input = ambient / wlot powietrza (~18-30°C)
-#   pwm1        = wentylatory chassis (fan1-fan4)
-#   pwm7        = wentylatory CPU (fan7-fan8)
+#   temp6_input = disk zone (~30-50°C)
+#   temp8_input = ambient / air inlet (~18-30°C)
+#   pwm1        = chassis fans (fan1-fan4)
+#   pwm7        = CPU fans (fan7-fan8)
 #
-# Krzywa PWM (liniowa):
-#   pwm1 (chassis): 30°C=80  →  50°C=255  (sterowane dyskami)
-#   pwm7 (CPU):     45°C=60  →  85°C=255  (sterowane CPU zone)
+# PWM curve (linear):
+#   pwm1 (chassis): 30°C=80  →  50°C=255  (controlled by disk zone)
+#   pwm7 (CPU):     45°C=60  →  85°C=255  (controlled by CPU zone)
 
 INTERVAL=10
 
@@ -19,29 +19,29 @@ DEVPATH=hwmon19=devices/platform/qnap-ec
 
 DEVNAME=hwmon19=qnap_ec
 
-# Który sensor steruje którym PWM
-# pwm1 (chassis) → temp6 (dyski), pwm7 (CPU fans) → temp1 (CPU zone)
+# Which sensor controls which PWM
+# pwm1 (chassis) → temp6 (disks), pwm7 (CPU fans) → temp1 (CPU zone)
 FCTEMPS=hwmon19/pwm1=hwmon19/temp6_input hwmon19/pwm7=hwmon19/temp1_input
 
-# Który wentylator jest przypisany do danego PWM (do weryfikacji)
+# Which fan is assigned to each PWM (for verification)
 FCFANS=hwmon19/pwm1=hwmon19/fan1_input hwmon19/pwm7=hwmon19/fan7_input
 
-# Temperatura poniżej której PWM = MINPWM (wentylatory na minimum)
+# Temperature below which PWM = MINPWM (fans at minimum speed)
 MINTEMP=hwmon19/pwm1=30 hwmon19/pwm7=45
 
-# Temperatura powyżej której PWM = MAXPWM (wentylatory na max)
+# Temperature above which PWM = MAXPWM (fans at full speed)
 MAXTEMP=hwmon19/pwm1=50 hwmon19/pwm7=85
 
-# Minimalny PWM gdy wentylatory już się kręcą (0-255)
-# ~31% dla chassis, ~24% dla CPU — zapobiega zatrzymaniu wentylatorów
+# Minimum PWM while fans are already running (0-255)
+# ~31% for chassis, ~24% for CPU — prevents fans from stopping
 MINPWM=hwmon19/pwm1=80 hwmon19/pwm7=60
 
-# Maksymalny PWM = 255 (100%)
+# Maximum PWM = 255 (100%)
 MAXPWM=hwmon19/pwm1=255 hwmon19/pwm7=255
 
-# PWM potrzebny do uruchomienia zatrzymanego wentylatora
-# (fans nigdy się nie zatrzymają przy powyższych MINPWM, ale wymagane przez fancontrol)
+# PWM required to start a stopped fan
+# (fans will never stop with the above MINPWM values, but required by fancontrol)
 MINSTART=hwmon19/pwm1=100 hwmon19/pwm7=100
 
-# PWM przy którym wentylatory się zatrzymują — ustaw = MINPWM żeby nigdy nie zatrzymywać
+# PWM at which fans stop — set equal to MINPWM to never stop fans
 MINSTOP=hwmon19/pwm1=80 hwmon19/pwm7=60
