@@ -63,7 +63,8 @@ This will:
 4. Set up `fancontrol` with temp→PWM curves
 5. Install `qnap-monitor` to `/usr/local/bin/`
 
-> **After a kernel update:** `cd qnap-ec-fan-monitor && sudo make install && sudo systemctl restart fancontrol`
+> **After a kernel update:** DKMS rebuilds the module automatically — no action needed.
+> If the auto-build fails (e.g. headers not installed): `sudo apt install pve-headers-$(uname -r) && sudo dkms install qnap-ec/1.1.2`
 
 ### Verification
 
@@ -93,12 +94,11 @@ qnap-monitor
 ### Uninstall
 
 ```bash
-sudo systemctl stop fancontrol                       # stop fan control service
-sudo systemctl disable fancontrol                    # disable autostart
-sudo make uninstall                                  # remove kernel module, helper binary, library
-sudo sed -i '/^qnap-ec$/d' /etc/modules             # remove module from boot autoload
-sudo rm -f /etc/fancontrol /etc/modprobe.d/qnap-ec.conf  # remove config files
+sudo bash uninstall.sh
 ```
+
+This removes all components: kernel module (all DKMS kernels), helper binary, library,
+fancontrol service and config, module autoload entry, and qnap-monitor.
 
 ### Tested on
 
