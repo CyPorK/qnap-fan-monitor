@@ -1,4 +1,4 @@
-# QNAP-EC on TVS-h1288X + Proxmox VE
+# qnap-ec-fan-monitor — TVS-h1288X + Proxmox VE
 
 ## What was done
 
@@ -21,14 +21,14 @@ Installed the [QNAP-EC](https://github.com/Stonyx/QNAP-EC) driver (by Stonyx)
 Run this on the **PVE host** (not inside a VM):
 
 ```bash
-git clone https://github.com/CyPorK/qnap-fan-monitor
-cd qnap-fan-monitor
-sudo bash fancontrol/install.sh
+git clone https://github.com/CyPorK/qnap-ec-fan-monitor
+cd qnap-ec-fan-monitor
+sudo bash install.sh
 ```
 
 This installs everything: kernel module, fancontrol, and qnap-monitor.
 
-> **After a kernel update:** `cd qnap-fan-monitor && sudo make install && sudo systemctl restart fancontrol`
+> **After a kernel update:** `cd qnap-ec-fan-monitor && sudo make install && sudo systemctl restart fancontrol`
 
 ### Manual installation steps
 
@@ -108,7 +108,7 @@ Installed and running since 2026-02-28.
 #### Configuration files
 - `/etc/modprobe.d/qnap-ec.conf` — enables `sim_pwm_enable=yes` (required by fancontrol)
 - `/etc/fancontrol` — temp→PWM curves
-- `fancontrol/install.sh` — install script (reusable after reinstallation)
+- `install.sh` — install script (reusable after reinstallation)
 
 #### Channel mapping
 | PWM | Controlling sensor | Min temp | Max temp | Min PWM | Max PWM |
@@ -123,13 +123,13 @@ Installed and running since 2026-02-28.
 #### Rebuilding after a kernel update
 After every PVE kernel update, rebuild and reinstall the module:
 ```bash
-cd ~/QNAP-EC && sudo make install
+cd ~/qnap-ec-fan-monitor && sudo make install
 sudo systemctl restart fancontrol
 ```
 
 ### 2. Live dashboard — qnap-monitor ✅ DONE
 
-File: `fancontrol/qnap-monitor` (bash, installed at `/usr/local/bin/qnap-monitor`)
+File: `qnap-monitor` (bash, installed at `/usr/local/bin/qnap-monitor`)
 
 Dashboard refreshed every N seconds (default: 2s), displays:
 - CPU temperatures (Package + per-core) with `█░` bars

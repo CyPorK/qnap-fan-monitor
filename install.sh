@@ -1,12 +1,10 @@
 #!/bin/bash
 # Full installation: qnap-ec driver + fancontrol + qnap-monitor
-# Run as: sudo bash fancontrol/install.sh  (from repo root)
-#      or: sudo bash install.sh            (from fancontrol/ directory)
+# Run as: sudo bash install.sh  (from repo root)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -39,7 +37,7 @@ fi
 
 echo ""
 echo "=== 2. Build and install qnap-ec kernel module ==="
-cd "$REPO_DIR"
+cd "$SCRIPT_DIR"
 make install
 echo "Installed: qnap-ec.ko"
 
@@ -104,4 +102,4 @@ done
 echo ""
 echo "=== Done ==="
 echo "  Run 'qnap-monitor' to see live thermal dashboard."
-echo "  After a kernel update: cd $REPO_DIR && sudo make install && sudo systemctl restart fancontrol"
+echo "  After a kernel update: cd $SCRIPT_DIR && sudo make install && sudo systemctl restart fancontrol"

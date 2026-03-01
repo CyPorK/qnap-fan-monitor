@@ -51,6 +51,23 @@ temp_color() {
 
 read_temp() { awk '{printf "%d", $1/1000}' "$1" 2>/dev/null || echo 0; }
 
+# Parsuje listę CPU z thread_siblings_list (np. "0,6" lub "0-3,8-11")
+# Wypisuje każde CPU na osobnej linii
+expand_cpu_list() {
+    local result=()
+    IFS=',' read -ra parts <<< "$1"
+    for part in "${parts[@]}"; do
+        if [[ "$part" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+            for (( n=${BASH_REMATCH[1]}; n<=${BASH_REMATCH[2]}; n++ )); do
+                result+=("$n")
+            done
+        else
+            result+=("$part")
+        fi
+    done
+    printf '%s\n' "${result[@]}"
+}
+
 # ── CPU stats (/proc/stat) ────────────────────────────────────────────────────
 # Tablice globalne — NIE deklaruj wewnątrz funkcji
 declare -A snap_total snap_idle prev_total prev_idle
@@ -80,6 +97,28 @@ cpu_pct() {
     [ "$pct" -gt 100 ] && pct=100
     echo "$pct"
 }
+
+# ── Detekcja fizycznych rdzeni z coretemp ─────────────────────────────────────
+# Wykrywa rdzenie po label "Core N", mapuje na wątki HT z thread_siblings_list
+declare -a CORE_IDS=()   # posortowane numery fizycznych rdzeni
+declare -A CORE_TEMP=()  # core_id -> ścieżka do pliku temp
+declare -A CORE_CPUS=()  # core_id -> "cpu0 cpu6" (lista wątków, spacja)
+
+for _f in "$CT"/temp*_input; do
+    _label=$(cat "${_f/_input/_label}" 2>/dev/null) || continue
+    [[ "$_label" =~ ^Core[[:space:]]+([0-9]+)$ ]] || continue
+    _core="${BASH_REMATCH[1]}"
+    CORE_TEMP[$_core]="$_f"
+    _sib="/sys/devices/system/cpu/cpu${_core}/topology/thread_siblings_list"
+    if [[ -f "$_sib" ]]; then
+        mapfile -t _cpus < <(expand_cpu_list "$(cat "$_sib")")
+        CORE_CPUS[$_core]="${_cpus[*]}"
+    else
+        CORE_CPUS[$_core]="$_core"
+    fi
+done
+IFS=$'\n' read -r -d '' -a CORE_IDS \
+    < <(printf '%s\n' "${!CORE_TEMP[@]}" | sort -n && printf '\0')
 
 # Pierwsze odczytanie
 read_cpu_stats
@@ -121,29 +160,27 @@ while true; do
         echo ""
     fi
 
-    printf "${D}  %-10s %-19s  %-24s%-20s${N}\n" \
-        "" "temp" "load cpu N (HT)" "load cpu N+6 (HT)"
+    printf "${D}  %-10s %-19s  %s${N}\n" "" "temp" "load (wątki CPU)"
 
-    # Core 0-5 = temp2-temp7 w coretemp; HT: Core N -> cpuN i cpu(N+6)
-    for i in 2 3 4 5 6 7; do
-        f="$CT/temp${i}_input"
-        [ -f "$f" ] || continue
-        core=$(( i - 2 ))
+    for core in "${CORE_IDS[@]}"; do
+        f="${CORE_TEMP[$core]}"
         t=$(read_temp "$f")
-        pct_a=$(cpu_pct "cpu${core}")
-        pct_b=$(cpu_pct "cpu$(( core + 6 ))")
+        read -r -a cpu_list <<< "${CORE_CPUS[$core]}"
 
         printf "  Core %d:  $(temp_color $t 75 90)%3d C${N}  " "$core" "$t"
         bar "$t" 100 13
         printf "  "
         if [ "$FIRST_RUN" -eq 1 ]; then
-            printf "${D}cpu%-2d [-- mierzy --]     cpu%-2d [-- mierzy --]${N}" \
-                "$core" $(( core + 6 ))
+            for cpu in "${cpu_list[@]}"; do
+                printf "${D}cpu%-2d [-- mierzy --]  ${N}" "$cpu"
+            done
         else
-            printf "${D}cpu%-2d${N} " "$core"
-            bar "$pct_a" 100 10
-            printf "  ${D}cpu%-2d${N} " $(( core + 6 ))
-            bar "$pct_b" 100 10
+            for cpu in "${cpu_list[@]}"; do
+                pct=$(cpu_pct "cpu${cpu}")
+                printf "${D}cpu%-2d${N} " "$cpu"
+                bar "$pct" 100 10
+                printf "  "
+            done
         fi
         echo ""
     done
