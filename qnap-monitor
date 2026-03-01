@@ -1,11 +1,11 @@
 #!/bin/bash
-# qnap-monitor — live dashboard: temperatury, wentylatory, obciążenie CPU
+# qnap-monitor — live dashboard: temperatures, fans, CPU load
 # QNAP TVS-h1288X + Proxmox VE
-# Użycie: ./qnap-monitor [interwał_w_sekundach]
+# Usage: ./qnap-monitor [interval_in_seconds]
 
 INTERVAL=${1:-2}
 
-# Auto-detekcja hwmon po nazwie (odporna na zmiany numeracji po restarcie/aktualizacji kernela)
+# Auto-detect hwmon by name (resilient to numbering changes after reboot/kernel update)
 find_hwmon() {
     local target="$1"
     for h in /sys/class/hwmon/hwmon*/; do
@@ -14,15 +14,15 @@ find_hwmon() {
     return 1
 }
 
-HW=$(find_hwmon "qnap_ec")   || { printf 'ERROR: qnap_ec hwmon nie znaleziony (zaladowany modul qnap-ec?)\n' >&2; exit 1; }
-CT=$(find_hwmon "coretemp")  || { printf 'ERROR: coretemp hwmon nie znaleziony\n' >&2; exit 1; }
+HW=$(find_hwmon "qnap_ec")   || { printf 'ERROR: qnap_ec hwmon not found (is qnap-ec module loaded?)\n' >&2; exit 1; }
+CT=$(find_hwmon "coretemp")  || { printf 'ERROR: coretemp hwmon not found\n' >&2; exit 1; }
 
-# Kolory
+# Colors
 R='\033[0;31m' Y='\033[0;33m' G='\033[0;32m'
 C='\033[0;36m' W='\033[1;37m' D='\033[2;37m' N='\033[0m'
 BOLD='\033[1m' REV='\033[7m'
 
-# Pasek: bar <wartość> <max> <szerokość>
+# Bar: bar <value> <max> <width>
 bar() {
     local val=$1 max=$2 width=${3:-20}
     [ "$max" -le 0 ] && max=1
@@ -51,8 +51,8 @@ temp_color() {
 
 read_temp() { awk '{printf "%d", $1/1000}' "$1" 2>/dev/null || echo 0; }
 
-# Parsuje listę CPU z thread_siblings_list (np. "0,6" lub "0-3,8-11")
-# Wypisuje każde CPU na osobnej linii
+# Parse CPU list from thread_siblings_list (e.g. "0,6" or "0-3,8-11")
+# Print each CPU on a separate line
 expand_cpu_list() {
     local result=()
     IFS=',' read -ra parts <<< "$1"
@@ -69,7 +69,7 @@ expand_cpu_list() {
 }
 
 # ── CPU stats (/proc/stat) ────────────────────────────────────────────────────
-# Tablice globalne — NIE deklaruj wewnątrz funkcji
+# Global arrays — do NOT declare inside functions
 declare -A snap_total snap_idle prev_total prev_idle
 
 read_cpu_stats() {
@@ -98,11 +98,11 @@ cpu_pct() {
     echo "$pct"
 }
 
-# ── Detekcja fizycznych rdzeni z coretemp ─────────────────────────────────────
-# Wykrywa rdzenie po label "Core N", mapuje na wątki HT z thread_siblings_list
-declare -a CORE_IDS=()   # posortowane numery fizycznych rdzeni
-declare -A CORE_TEMP=()  # core_id -> ścieżka do pliku temp
-declare -A CORE_CPUS=()  # core_id -> "cpu0 cpu6" (lista wątków, spacja)
+# ── Detect physical cores from coretemp ──────────────────────────────────────
+# Detect cores by "Core N" label, map to HT threads from thread_siblings_list
+declare -a CORE_IDS=()   # sorted physical core IDs
+declare -A CORE_TEMP=()  # core_id -> path to temp file
+declare -A CORE_CPUS=()  # core_id -> "cpu0 cpu6" (thread list, space-separated)
 
 for _f in "$CT"/temp*_input; do
     _label=$(cat "${_f/_input/_label}" 2>/dev/null) || continue
@@ -120,7 +120,7 @@ done
 IFS=$'\n' read -r -d '' -a CORE_IDS \
     < <(printf '%s\n' "${!CORE_TEMP[@]}" | sort -n && printf '\0')
 
-# Pierwsze odczytanie
+# Initial read
 read_cpu_stats
 save_cpu_stats
 FIRST_RUN=1
@@ -129,7 +129,7 @@ FIRST_RUN=1
 tput civis; tput smcup
 trap 'tput rmcup; tput cnorm; exit 0' INT TERM EXIT
 
-# ── Pętla główna ──────────────────────────────────────────────────────────────
+# ── Main loop ─────────────────────────────────────────────────────────────────
 while true; do
 
     read_cpu_stats
@@ -137,7 +137,7 @@ while true; do
     NOW=$(date '+%Y-%m-%d %H:%M:%S')
     COLS=$(tput cols)
 
-    # Nagłówek
+    # Header
     printf "${REV}${BOLD}  QNAP TVS-h1288X | Thermal & Fan Monitor | %-*s  ${N}\n" \
         $(( COLS - 47 )) "$NOW"
     printf "${D}  Interval: ${INTERVAL}s  |  q = quit%-*s${N}\n\n" \
@@ -153,14 +153,14 @@ while true; do
     printf "$(temp_color $pkg 75 90)%3d C${N}  " "$pkg"
     bar "$pkg" 100 13
     if [ "$FIRST_RUN" -eq 1 ]; then
-        printf "   Total load: ${D}[-- mierzy --]${N}\n"
+        printf "   Total load: ${D}[-- measuring --]${N}\n"
     else
         printf "   Total load: "
         bar "$total_pct" 100 15
         echo ""
     fi
 
-    printf "${D}  %-10s %-19s  %s${N}\n" "" "temp" "load (wątki CPU)"
+    printf "${D}  %-10s %-19s  %s${N}\n" "" "temp" "load (CPU threads)"
 
     for core in "${CORE_IDS[@]}"; do
         f="${CORE_TEMP[$core]}"
@@ -172,7 +172,7 @@ while true; do
         printf "  "
         if [ "$FIRST_RUN" -eq 1 ]; then
             for cpu in "${cpu_list[@]}"; do
-                printf "${D}cpu%-2d [-- mierzy --]  ${N}" "$cpu"
+                printf "${D}cpu%-2d [-- measuring --]  ${N}" "$cpu"
             done
         else
             for cpu in "${cpu_list[@]}"; do
@@ -195,13 +195,13 @@ while true; do
     t8=$(read_temp "$HW/temp8_input")
 
     printf "  %-20s $(temp_color $t1 75 90)%3d C${N}  " "CPU zone (EC):"  "$t1"; bar "$t1" 100 22; echo ""
-    printf "  %-20s $(temp_color $t6 45 55)%3d C${N}  " "Dyski strefa 1:" "$t6"; bar "$t6"  60 22; echo ""
-    printf "  %-20s $(temp_color $t7 45 55)%3d C${N}  " "Dyski strefa 2:" "$t7"; bar "$t7"  60 22; echo ""
-    printf "  %-20s $(temp_color $t8 30 40)%3d C${N}  " "Ambient (wlot):" "$t8"; bar "$t8"  45 22; echo ""
+    printf "  %-20s $(temp_color $t6 45 55)%3d C${N}  " "Drive zone 1:"   "$t6"; bar "$t6"  60 22; echo ""
+    printf "  %-20s $(temp_color $t7 45 55)%3d C${N}  " "Drive zone 2:"   "$t7"; bar "$t7"  60 22; echo ""
+    printf "  %-20s $(temp_color $t8 30 40)%3d C${N}  " "Ambient (intake):" "$t8"; bar "$t8"  45 22; echo ""
     echo ""
 
-    # ── Wentylatory ───────────────────────────────────────────────────────────
-    printf "${W}${BOLD}  -- Wentylatory ----------------------------------------------------${N}\n"
+    # ── Fans ──────────────────────────────────────────────────────────────────
+    printf "${W}${BOLD}  -- Fans -----------------------------------------------------------${N}\n"
 
     pwm1=$(cat "$HW/pwm1" 2>/dev/null || echo 0)
     pwm7=$(cat "$HW/pwm7" 2>/dev/null || echo 0)
@@ -223,8 +223,8 @@ while true; do
     done
     echo ""
 
-    # ── Dyski (top 5 najgorętszych) ───────────────────────────────────────────
-    printf "${W}${BOLD}  -- Dyski (top 5 najgoretszych) ------------------------------------${N}\n"
+    # ── Drives (top 5 hottest) ────────────────────────────────────────────────
+    printf "${W}${BOLD}  -- Drives (top 5 hottest) -----------------------------------------${N}\n"
 
     temps=()
     for h in /sys/class/hwmon/hwmon*/; do
@@ -248,13 +248,13 @@ while true; do
     # ── Status ────────────────────────────────────────────────────────────────
     fc_status=$(systemctl is-active fancontrol 2>/dev/null)
     if [ "$fc_status" = "active" ]; then
-        printf "  ${G}[OK] fancontrol aktywny${N}\n"
+        printf "  ${G}[OK] fancontrol active${N}\n"
     else
-        printf "  ${R}[!!] fancontrol NIEAKTYWNY${N}\n"
+        printf "  ${R}[!!] fancontrol INACTIVE${N}\n"
     fi
-    printf "\n  ${D}q = wyjście  |  Ctrl+C = przerwij${N}\n"
+    printf "\n  ${D}q = quit  |  Ctrl+C = interrupt${N}\n"
 
-    # Zapisz stats i czekaj
+    # Save stats and wait
     save_cpu_stats
     FIRST_RUN=0
     tput ed
