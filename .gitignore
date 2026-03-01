@@ -1,0 +1,23 @@
+# Kernel module build artifacts
+*.ko
+*.o
+*.mod
+*.mod.c
+*.mod.o
+*.cmd
+*.symvers
+*.order
+
+# Hidden build artifacts (kbuild)
+.*.cmd
+.*.o
+.*.ko
+.*.mod
+.*.mod.o
+
+# Compiled helper binary
+qnap-ec
+
+# Kbuild generated files
+Module.symvers
+modules.order
