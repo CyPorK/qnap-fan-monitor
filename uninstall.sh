@@ -85,5 +85,16 @@ echo "=== 9. Remove qnap-monitor ==="
 remove_file /usr/local/bin/qnap-monitor
 
 echo ""
+echo "=== 10. Remove qnap-watchdog ==="
+systemctl stop qnap-watchdog.timer 2>/dev/null || true
+systemctl disable qnap-watchdog.timer 2>/dev/null || true
+remove_file /etc/systemd/system/qnap-watchdog.service
+remove_file /etc/systemd/system/qnap-watchdog.timer
+remove_file /usr/local/bin/qnap-watchdog
+remove_file /etc/logrotate.d/qnap-watchdog
+remove_file /var/log/qnap-watchdog.log
+systemctl daemon-reload
+
+echo ""
 echo "=== Done ==="
 echo "  All qnap-ec-fan-monitor components have been removed."

@@ -1,0 +1,7 @@
+[Unit]
+Description=QNAP thermal and fancontrol watchdog
+After=fancontrol.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/qnap-watchdog

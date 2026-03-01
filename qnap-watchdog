@@ -1,0 +1,59 @@
+#!/bin/bash
+# qnap-watchdog — thermal and fancontrol health check
+# Alerts go to syslog (journalctl -t qnap-watchdog) and /var/log/qnap-watchdog.log
+# Run via systemd timer every 5 minutes.
+
+# ── Thresholds ────────────────────────────────────────────────────────────────
+TEMP_CPU_CRIT=88    # EC CPU zone (°C) — fancontrol MAXTEMP=85, alert above
+TEMP_DRIVE_CRIT=50  # Drive temperature (°C) — fancontrol MAXTEMP=50 for chassis
+FAN_STALL_PWM=50    # PWM (0-255) above which RPM=0 is considered a stall
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+LOG=/var/log/qnap-watchdog.log
+
+alert() {
+    logger -t qnap-watchdog -p daemon.warning "$1"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') ALERT: $1" >> "$LOG"
+}
+
+read_temp() { awk '{printf "%d", $1/1000}' "$1" 2>/dev/null || echo 0; }
+
+# ── 1. fancontrol service ─────────────────────────────────────────────────────
+if ! systemctl is-active --quiet fancontrol; then
+    alert "fancontrol service not active: $(systemctl is-active fancontrol)"
+fi
+
+# ── 2. Find hwmon device ──────────────────────────────────────────────────────
+HW=$(grep -rl qnap_ec /sys/class/hwmon/*/name 2>/dev/null | xargs dirname | head -1)
+
+if [ -z "$HW" ]; then
+    alert "qnap_ec hwmon device not found — module not loaded?"
+    exit 1
+fi
+
+# ── 3. CPU zone temperature ───────────────────────────────────────────────────
+ec_cpu=$(read_temp "$HW/temp1_input")
+if [ "$ec_cpu" -ge "$TEMP_CPU_CRIT" ]; then
+    alert "CPU zone temperature critical: ${ec_cpu}°C (threshold: ${TEMP_CPU_CRIT}°C)"
+fi
+
+# ── 4. Drive temperatures ─────────────────────────────────────────────────────
+for h in /sys/class/hwmon/hwmon*/; do
+    [ "$(cat "$h/name" 2>/dev/null)" = "drivetemp" ] || continue
+    t=$(read_temp "$h/temp1_input")
+    [ "$t" -ge "$TEMP_DRIVE_CRIT" ] || continue
+    dev=$(ls "$h/device/block/" 2>/dev/null | head -1 || echo "unknown")
+    alert "Drive ${dev} temperature critical: ${t}°C (threshold: ${TEMP_DRIVE_CRIT}°C)"
+done
+
+# ── 5. Fan stalls ─────────────────────────────────────────────────────────────
+for chan in 1 2 3 4 7 8; do
+    f="$HW/fan${chan}_input"
+    [ -f "$f" ] || continue
+    [ "$chan" -le 4 ] && pwm=$(cat "$HW/pwm1" 2>/dev/null || echo 0) \
+                      || pwm=$(cat "$HW/pwm7" 2>/dev/null || echo 0)
+    rpm=$(cat "$f")
+    if [ "$rpm" -eq 0 ] && [ "$pwm" -ge "$FAN_STALL_PWM" ]; then
+        alert "Fan${chan} stalled: 0 RPM with PWM at $((pwm * 100 / 255))%"
+    fi
+done

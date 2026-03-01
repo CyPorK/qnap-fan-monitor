@@ -123,7 +123,19 @@ install -o root -g root -m 755 "$SCRIPT_DIR/qnap-monitor" /usr/local/bin/qnap-mo
 echo "  Installed: /usr/local/bin/qnap-monitor"
 
 echo ""
-echo "=== 13. Verify fan readings ==="
+echo "=== 13. Install qnap-watchdog ==="
+install -o root -g root -m 755 "$SCRIPT_DIR/qnap-watchdog" /usr/local/bin/qnap-watchdog
+install -o root -g root -m 644 "$SCRIPT_DIR/qnap-watchdog.service" /etc/systemd/system/qnap-watchdog.service
+install -o root -g root -m 644 "$SCRIPT_DIR/qnap-watchdog.timer"   /etc/systemd/system/qnap-watchdog.timer
+install -o root -g root -m 644 "$SCRIPT_DIR/qnap-watchdog.logrotate" /etc/logrotate.d/qnap-watchdog
+systemctl daemon-reload
+systemctl enable --now qnap-watchdog.timer
+echo "  Installed: /usr/local/bin/qnap-watchdog"
+echo "  Timer enabled: qnap-watchdog.timer (runs every 5 min)"
+echo "  Alerts → journalctl -t qnap-watchdog  |  /var/log/qnap-watchdog.log"
+
+echo ""
+echo "=== 14. Verify fan readings ==="
 for fan in fan1_input fan2_input fan3_input fan4_input fan7_input fan8_input; do
     f="$HW/$fan"
     [ -f "$f" ] || continue
