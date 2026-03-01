@@ -14,7 +14,7 @@ extremely loud. This repo provides everything needed to fix that.
 |---|---|
 | `fancontrol/qnap-ec.conf` | Module config — enables `sim_pwm_enable=yes` (required for fancontrol) |
 | `fancontrol/fancontrol` | Ready-to-use fancontrol config with temp→PWM curves for drives and CPU |
-| `fancontrol/install.sh` | One-shot install script for the full fancontrol setup |
+| `fancontrol/install.sh` | One-shot install script — full setup from scratch (driver + fancontrol + qnap-monitor) |
 | `fancontrol/qnap-monitor` | Live terminal dashboard — temperatures, fan RPMs, CPU load |
 
 ### qnap-monitor
@@ -47,6 +47,23 @@ sudo install -m 755 fancontrol/qnap-monitor /usr/local/bin/qnap-monitor
 qnap-monitor        # refresh every 2s
 qnap-monitor 5      # refresh every 5s  |  q = quit
 ```
+
+### Quick install (full setup from scratch)
+
+```bash
+git clone https://github.com/CyPorK/qnap-fan-monitor
+cd qnap-fan-monitor
+sudo bash fancontrol/install.sh
+```
+
+This will:
+1. Install kernel headers and build tools
+2. Compile and install the `qnap-ec` kernel module
+3. Configure autostart via `/etc/modules`
+4. Set up `fancontrol` with temp→PWM curves
+5. Install `qnap-monitor` to `/usr/local/bin/`
+
+> **After a kernel update:** `cd qnap-fan-monitor && sudo make install && sudo systemctl restart fancontrol`
 
 ### Tested on
 
