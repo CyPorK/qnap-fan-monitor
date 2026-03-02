@@ -100,6 +100,13 @@ sudo bash uninstall.sh
 This removes all components: kernel module (all DKMS kernels), helper binary, library,
 fancontrol service and config, module autoload entry, and qnap-monitor.
 
+### Historical metrics (planned)
+
+Hardware sensors exposed by this driver (`node_hwmon_*`) are compatible with
+[prometheus-node-exporter](https://packages.debian.org/stable/prometheus-node-exporter) —
+install it on the PVE host to feed a Grafana dashboard with temperature, fan RPM, and PWM history.
+Monitoring stack setup: see separate [homelab-monitoring](../homelab-monitoring) repo (in progress).
+
 ### Tested on
 
 - **Hardware**: QNAP TVS-h1288X, Intel Xeon W-1250 (6C/12T), ITE IT8528 EC chip
