@@ -120,6 +120,13 @@ done
 IFS=$'\n' read -r -d '' -a CORE_IDS \
     < <(printf '%s\n' "${!CORE_TEMP[@]}" | sort -n && printf '\0')
 
+# ── CPU info (static, read once at startup) ───────────────────────────────
+_cpu_model=$(awk -F': ' '/^model name/{print $2; exit}' /proc/cpuinfo \
+    | sed 's/Intel(R) //; s/Xeon(R) /Xeon /; s/Core(TM) //; s/ CPU / /; s/(R)//g; s/(TM)//g; s/  */ /g; s/ *$//')
+_cpu_cores=$(awk -F': ' '/^cpu cores/{print $2; exit}' /proc/cpuinfo)
+_cpu_threads=$(awk -F': ' '/^siblings/{print $2; exit}' /proc/cpuinfo)
+CPU_INFO="${_cpu_model} · ${_cpu_cores}C/${_cpu_threads}T"
+
 # Initial read
 read_cpu_stats
 save_cpu_stats
@@ -144,7 +151,9 @@ while true; do
         $(( COLS - 33 )) ""
 
     # ── CPU ───────────────────────────────────────────────────────────────────
-    printf "${W}${BOLD}  -- CPU ------------------------------------------------------------------${N}\n"
+    _cpu_hdr="  -- CPU -- [${CPU_INFO}] "
+    _cpu_dashes=$(printf '%*s' $(( COLS - ${#_cpu_hdr} )) '' | tr ' ' '-')
+    printf "${W}${BOLD}%s%s${N}\n" "$_cpu_hdr" "$_cpu_dashes"
 
     pkg=$(read_temp "$CT/temp1_input")
     total_pct=$(cpu_pct "cpu")
