@@ -343,6 +343,7 @@ analyze_csv() {
     if [[ "$mode" == "screen" ]]; then
         printf "\n  ${D}Press any key to return...${N}"
         read -r -s -n1
+        tput clear
     fi
 }
 
