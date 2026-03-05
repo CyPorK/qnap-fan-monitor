@@ -219,9 +219,26 @@ analyze_csv() {
         printf "LOAD_PWM7_PEAK=%d\n", peak_pwm7["LOAD"]+0
         printf "LOAD_PWM1_PEAK=%d\n", peak_pwm1["LOAD"]+0
         printf "IDLE_PWM7_BASE=%d\n", idle_pwm7_max+0
+        printf "IDLE_CNT=%d\n",       cnt["IDLE"]+0
+        printf "LOAD_CNT=%d\n",       cnt["LOAD"]+0
+        printf "COOLDOWN_CNT=%d\n",   cnt["COOLDOWN"]+0
     }
     ' "$csvfile")
     eval "$stats"
+
+    # Duration from first/last CSV data rows
+    local _first_ts _last_ts duration_str="N/A"
+    _first_ts=$(awk -F',' 'NR==2{print $1; exit}' "$csvfile")
+    _last_ts=$(awk -F',' 'END{print $1}' "$csvfile")
+    if [[ -n "$_first_ts" && -n "$_last_ts" ]]; then
+        local _t1 _t2
+        _t1=$(date -d "$_first_ts" '+%s' 2>/dev/null || echo 0)
+        _t2=$(date -d "$_last_ts"  '+%s' 2>/dev/null || echo 0)
+        if [[ "$_t1" -gt 0 && "$_t2" -gt "$_t1" ]]; then
+            local _dur=$(( _t2 - _t1 ))
+            duration_str="$(( _dur / 60 ))m $(( _dur % 60 ))s"
+        fi
+    fi
 
     # Pass 2: fan lag — seconds from first LOAD row until pwm7 rises >10% above idle baseline
     local idle_pwm7_base_raw="${IDLE_PWM7_BASE:-0}"
@@ -252,35 +269,37 @@ analyze_csv() {
     local drv_margin=$(( drv_maxtemp - LOAD_T6_PEAK ))
 
     local cpu_verdict drv_verdict lag_verdict pwm_suggest
+    # Note: MAXTEMP = temp at which fancontrol ramps fan to 100%, not a hardware limit.
+    # Margin = how many degrees below MAXTEMP the peak stayed.
     if   [[ "$cpu_margin" -ge 10 ]]; then
-        cpu_verdict="${G}[OK]${N}   CPU margin ${cpu_margin}°C vs MAXTEMP ${cpu_maxtemp}°C"
+        cpu_verdict="${G}[OK]${N}   CPU peak ${LOAD_T1_PEAK}°C, margin ${cpu_margin}°C below MAXTEMP ${cpu_maxtemp}°C — fancontrol config OK"
     elif [[ "$cpu_margin" -ge 5  ]]; then
-        cpu_verdict="${Y}[WARN]${N} CPU margin ${cpu_margin}°C vs MAXTEMP ${cpu_maxtemp}°C"
+        cpu_verdict="${Y}[WARN]${N} CPU peak ${LOAD_T1_PEAK}°C, margin only ${cpu_margin}°C below MAXTEMP ${cpu_maxtemp}°C — consider lowering MAXTEMP[pwm7]"
     else
-        cpu_verdict="${R}[CRIT]${N} CPU margin only ${cpu_margin}°C vs MAXTEMP ${cpu_maxtemp}°C"
+        cpu_verdict="${R}[CRIT]${N} CPU peak ${LOAD_T1_PEAK}°C = MAXTEMP ${cpu_maxtemp}°C (fan was at 100%, no headroom) — lower MAXTEMP[pwm7] in fancontrol"
     fi
 
     if   [[ "$drv_margin" -ge 10 ]]; then
-        drv_verdict="${G}[OK]${N}   Drive margin ${drv_margin}°C vs MAXTEMP ${drv_maxtemp}°C"
+        drv_verdict="${G}[OK]${N}   Drive peak ${LOAD_T6_PEAK}°C, margin ${drv_margin}°C below MAXTEMP ${drv_maxtemp}°C — fancontrol config OK"
     elif [[ "$drv_margin" -ge 5  ]]; then
-        drv_verdict="${Y}[WARN]${N} Drive margin ${drv_margin}°C vs MAXTEMP ${drv_maxtemp}°C"
+        drv_verdict="${Y}[WARN]${N} Drive peak ${LOAD_T6_PEAK}°C, margin only ${drv_margin}°C below MAXTEMP ${drv_maxtemp}°C — consider lowering MAXTEMP[pwm1]"
     else
-        drv_verdict="${R}[CRIT]${N} Drive margin only ${drv_margin}°C vs MAXTEMP ${drv_maxtemp}°C"
+        drv_verdict="${R}[CRIT]${N} Drive peak ${LOAD_T6_PEAK}°C = MAXTEMP ${drv_maxtemp}°C (fan at 100%, no headroom) — lower MAXTEMP[pwm1] in fancontrol"
     fi
 
     if [[ "$lag_sec" == "N/A" ]]; then
         lag_verdict="${D}[N/A]${N}  Fan lag not measurable (not enough LOAD data)"
     elif [[ "$lag_sec" -le 30 ]]; then
-        lag_verdict="${G}[OK]${N}   Fan lag ${lag_sec}s"
+        lag_verdict="${G}[OK]${N}   Fan lag ${lag_sec}s — fancontrol responds quickly enough"
     else
-        lag_verdict="${Y}[WARN]${N} Fan lag ${lag_sec}s (>30s)"
+        lag_verdict="${Y}[WARN]${N} Fan lag ${lag_sec}s (>30s) — fancontrol slow to react"
     fi
 
     local minpwm7="${FC_MINPWM[pwm7]:-0}"
     if [[ "$minpwm7" -gt 127 ]]; then
         pwm_suggest="${Y}[SUGGEST]${N} pwm7 MINPWM=${minpwm7} ($(( minpwm7*100/255 ))%) — consider lowering for quieter idle"
     else
-        pwm_suggest="${G}[OK]${N}   pwm7 MINPWM=${minpwm7} ($(( minpwm7*100/255 ))%)"
+        pwm_suggest="${G}[OK]${N}   pwm7 MINPWM=${minpwm7} ($(( minpwm7*100/255 ))%) — idle fan speed reasonable"
     fi
 
     # Render report
@@ -292,6 +311,8 @@ analyze_csv() {
     local sep='═══════════════════════════════════════════════════════════════════'
     printf "${BOLD}%s${N}\n" "$sep"
     printf " Stress-test Analysis Report\n"
+    printf " ${D}Duration: %-10s  IDLE: %d  LOAD: %d  COOLDOWN: %d samples${N}\n" \
+        "$duration_str" "${IDLE_CNT:-0}" "${LOAD_CNT:-0}" "${COOLDOWN_CNT:-0}"
     printf "${BOLD}%s${N}\n\n" "$sep"
 
     printf "${W}Temperature summary:${N}\n"
