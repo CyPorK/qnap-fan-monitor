@@ -130,7 +130,7 @@ draw_pwm_curve() {
         elif [[ "$i" -eq  "$pos" ]]; then printf "${W}${BOLD}●${N}"
         else printf "${D}─${N}"; fi
     done
-    printf "${D}] %2d°C${N}  %d°C → ${col}PWM %d%%${N}\n" "$maxtemp" "$curtemp" "$cur_pct"
+    printf "${D}] %2d°C${N}  %3d°C → ${col}PWM %3d%%${N}\n" "$maxtemp" "$curtemp" "$cur_pct"
 }
 
 # Parse /etc/fancontrol (or ./fancontrol) into FC_* associative arrays.
