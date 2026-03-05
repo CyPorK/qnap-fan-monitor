@@ -18,6 +18,9 @@
 # Compiled helper binary
 qnap-ec
 
+# Simulated library (built by make sim-lib) — never commit this over the real QNAP binary
+libuLinux_hal-sim.so
+
 # Kbuild generated files
 Module.symvers
 modules.order
