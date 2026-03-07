@@ -3,7 +3,6 @@
 # Replace <pve-host> with actual host IP/hostname before running
 
 Output docs/demo.gif
-Output docs/demo.svg
 
 Set FontSize 13
 Set Width 1200
@@ -13,7 +12,7 @@ Set Framerate 15
 
 # Connect silently (hide SSH command with IP from recording)
 Hide
-Type "ssh <pve-host> -t qnap-monitor"
+Type "ssh <pve-host> -t 'qnap-monitor 1'"
 Enter
 Sleep 4s
 Show
